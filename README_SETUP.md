@@ -4,7 +4,10 @@
 
 - Node.js 18+ and npm
 - Python 3.9+
-- Google Gemini API key (free at https://makersuite.google.com/app/apikey)
+- API Keys (all free tier):
+  - Google Gemini API key: https://aistudio.google.com/apikey
+  - Cohere API key: https://dashboard.cohere.com/api-keys
+  - Pinecone API key: https://app.pinecone.io/
 
 ## Backend Setup
 
@@ -31,10 +34,12 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-5. Create a `.env` file with your Gemini API key:
+5. Create a `.env` file with your API keys:
 
 ```bash
-GEMINI_API_KEY=your_api_key_here
+GEMINI_API_KEY=your_gemini_key
+COHERE_API_KEY=your_cohere_key
+PINECONE_API_KEY=your_pinecone_key
 ```
 
 6. Start the FastAPI server:
@@ -73,6 +78,9 @@ The frontend will run on http://localhost:3000
 - Drag and drop file upload
 - Real-time processing status
 - ChatGPT-style interface with dark theme
+- Real-time processing status
+- ChatGPT-style interface with dark theme
 - Typing indicator during AI responses
-- In-memory vector database (no persistence)
-- RAG-powered responses using Google Gemini 1.5 Flash (free tier)
+- Cloud-based vector database (Pinecone)
+- RAG-powered responses using Google Gemini 1.5 Flash
+- Cohere embeddings for semantic search

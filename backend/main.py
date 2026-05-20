@@ -1,9 +1,9 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import chromadb
-from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
+import cohere
+from pinecone import Pinecone, ServerlessSpec
 import os
 from typing import List
 import uuid
@@ -26,12 +26,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize models and clients
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-chroma_client = chromadb.Client()
-collection = chroma_client.create_collection(name="documents")
+# Initialize clients
+cohere_client = cohere.Client(api_key=os.getenv("COHERE_API_KEY"))
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 gemini_model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
+
+# Initialize or get Pinecone index
+INDEX_NAME = "rag-documents"
+DIMENSION = 1024  # Cohere embed-english-v3.0 dimension
+
+# Create index if it doesn't exist
+if INDEX_NAME not in pc.list_indexes().names():
+    pc.create_index(
+        name=INDEX_NAME,
+        dimension=DIMENSION,
+        metric="cosine",
+        spec=ServerlessSpec(cloud="aws", region="us-east-1")
+    )
+
+index = pc.Index(INDEX_NAME)
 
 class ChatRequest(BaseModel):
     message: str
@@ -83,14 +97,30 @@ async def upload_file(file: UploadFile = File(...)):
         # Chunk the text
         chunks = chunk_text(text)
         
-        # Generate embeddings and store in ChromaDB
-        for i, chunk in enumerate(chunks):
-            embedding = embedding_model.encode(chunk).tolist()
-            collection.add(
-                embeddings=[embedding],
-                documents=[chunk],
-                ids=[f"{file.filename}_{i}_{uuid.uuid4()}"]
-            )
+        # Generate embeddings using Cohere
+        response = cohere_client.embed(
+            texts=chunks,
+            model="embed-english-v3.0",
+            input_type="search_document"
+        )
+        embeddings = response.embeddings
+        
+        # Prepare vectors for Pinecone
+        vectors = []
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            vector_id = f"{file.filename}_{i}_{uuid.uuid4()}"
+            vectors.append({
+                "id": vector_id,
+                "values": embedding,
+                "metadata": {
+                    "text": chunk,
+                    "filename": file.filename,
+                    "chunk_index": i
+                }
+            })
+        
+        # Upsert to Pinecone
+        index.upsert(vectors=vectors)
         
         return {"status": "success", "filename": file.filename, "chunks": len(chunks)}
     except Exception as e:
@@ -100,17 +130,23 @@ async def upload_file(file: UploadFile = File(...)):
 async def chat(request: ChatRequest):
     """Handle chat requests with RAG"""
     try:
-        # Generate query embedding
-        query_embedding = embedding_model.encode(request.message).tolist()
+        # Generate query embedding using Cohere
+        response = cohere_client.embed(
+            texts=[request.message],
+            model="embed-english-v3.0",
+            input_type="search_query"
+        )
+        query_embedding = response.embeddings[0]
         
-        # Retrieve relevant chunks
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=3
+        # Query Pinecone for relevant chunks
+        results = index.query(
+            vector=query_embedding,
+            top_k=3,
+            include_metadata=True
         )
         
-        # Build context from retrieved chunks
-        context = "\n\n".join(results['documents'][0]) if results['documents'][0] else ""
+        # Extract context from results
+        context = "\n\n".join([match.metadata["text"] for match in results.matches if match.score > 0.3])
         
         if not context:
             return ChatResponse(response="I could not find relevant information in the uploaded documents")
@@ -133,7 +169,9 @@ Please answer the question based only on the provided context. If the answer is 
 @app.delete("/clear")
 async def clear_documents():
     """Clear all documents from the vector store"""
-    global collection, chroma_client
-    chroma_client.delete_collection(name="documents")
-    collection = chroma_client.create_collection(name="documents")
-    return {"status": "success"}
+    try:
+        # Delete all vectors from the index
+        index.delete(delete_all=True)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
