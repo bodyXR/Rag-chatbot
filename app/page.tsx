@@ -20,6 +20,7 @@ export default function Home() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -148,17 +149,56 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow-lg border border-gray-200"
+      >
+        <svg
+          className="w-6 h-6 text-gray-900"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          {isSidebarOpen ? (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          ) : (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          )}
+        </svg>
+      </button>
+
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-72 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-light tracking-wide text-gray-900">
+      <div
+        className={`w-72 bg-white border-r border-gray-200 flex flex-col fixed lg:static inset-y-0 left-0 z-40 transform transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+      >
+        <div className="p-4 sm:p-6 border-b border-gray-200 pt-16 lg:pt-4 sm:lg:pt-6">
+          <h1 className="text-lg sm:text-xl font-light tracking-wide text-gray-900">
             RAG Chat
           </h1>
           <p className="text-xs text-gray-500 mt-1">Chat with your documents</p>
         </div>
 
         <div
-          className={`m-6 p-8 border border-dashed rounded-xl text-center cursor-pointer transition-all ${
+          className={`m-4 sm:m-6 p-6 sm:p-8 border border-dashed rounded-xl text-center cursor-pointer transition-all ${
             isDragging
               ? "border-blue-400 bg-blue-50"
               : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
@@ -169,7 +209,7 @@ export default function Home() {
           onClick={() => fileInputRef.current?.click()}
         >
           <svg
-            className="w-8 h-8 mx-auto mb-3 text-gray-400"
+            className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 sm:mb-3 text-gray-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -181,10 +221,12 @@ export default function Home() {
               d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
             />
           </svg>
-          <p className="text-sm text-gray-600 font-light">
+          <p className="text-xs sm:text-sm text-gray-600 font-light">
             Drop files or click
           </p>
-          <p className="text-xs text-gray-500 mt-1">PDF · TXT · DOCX</p>
+          <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
+            PDF · TXT · DOCX
+          </p>
           <input
             ref={fileInputRef}
             type="file"
@@ -195,7 +237,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 space-y-2">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 space-y-2">
           {files.length === 0 && (
             <p className="text-xs text-gray-500 text-center py-4">
               No documents uploaded
@@ -241,13 +283,13 @@ export default function Home() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white lg:ml-0">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-8">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-8 pt-16 lg:pt-8">
           {messages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400">
+            <div className="h-full flex flex-col items-center justify-center text-gray-400 px-4">
               <svg
-                className="w-16 h-16 mb-4 opacity-30"
+                className="w-12 h-12 sm:w-16 sm:h-16 mb-3 sm:mb-4 opacity-30"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -259,23 +301,23 @@ export default function Home() {
                   d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                 />
               </svg>
-              <p className="text-sm font-light">
+              <p className="text-xs sm:text-sm font-light text-center">
                 Upload documents to start chatting
               </p>
             </div>
           )}
 
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`flex gap-3 max-w-[85%] ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                  className={`flex gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] ${message.role === "user" ? "flex-row-reverse" : ""}`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 ${
                       message.role === "user"
                         ? "bg-gray-900 text-white"
                         : "bg-gray-100 text-gray-600"
@@ -283,7 +325,7 @@ export default function Home() {
                   >
                     {message.role === "user" ? (
                       <svg
-                        className="w-4 h-4"
+                        className="w-3.5 h-3.5 sm:w-4 sm:h-4"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -295,7 +337,7 @@ export default function Home() {
                       </svg>
                     ) : (
                       <svg
-                        className="w-4 h-4"
+                        className="w-3.5 h-3.5 sm:w-4 sm:h-4"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -305,13 +347,13 @@ export default function Home() {
                     )}
                   </div>
                   <div
-                    className={`px-4 py-3 rounded-2xl ${
+                    className={`px-3 py-2 sm:px-4 sm:py-3 rounded-2xl ${
                       message.role === "user"
                         ? "bg-gray-900 text-white"
                         : "bg-gray-50 border border-gray-200 text-gray-800"
                     }`}
                   >
-                    <p className="text-[15px] leading-relaxed font-light whitespace-pre-wrap">
+                    <p className="text-sm sm:text-[15px] leading-relaxed font-light whitespace-pre-wrap">
                       {message.content}
                     </p>
                   </div>
@@ -321,10 +363,10 @@ export default function Home() {
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="flex gap-3 max-w-[85%]">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-gray-100 text-gray-600">
+                <div className="flex gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%]">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 bg-gray-100 text-gray-600">
                     <svg
-                      className="w-4 h-4"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4"
                       fill="currentColor"
                       viewBox="0 0 20 20"
                     >
@@ -332,7 +374,7 @@ export default function Home() {
                       <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
                     </svg>
                   </div>
-                  <div className="px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200">
+                  <div className="px-3 py-2 sm:px-4 sm:py-3 rounded-2xl bg-gray-50 border border-gray-200">
                     <div className="flex gap-1.5">
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                       <div
@@ -354,9 +396,9 @@ export default function Home() {
         </div>
 
         {/* Input Area */}
-        <div className="border-t border-gray-200 p-6 bg-white">
+        <div className="border-t border-gray-200 p-3 sm:p-6 bg-white">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-center gap-2 bg-gray-50 border border-gray-300 rounded-2xl p-2 focus-within:border-gray-400 transition-colors">
+            <div className="relative flex items-center gap-1.5 sm:gap-2 bg-gray-50 border border-gray-300 rounded-2xl p-1.5 sm:p-2 focus-within:border-gray-400 transition-colors">
               <input
                 type="text"
                 value={input}
@@ -365,16 +407,16 @@ export default function Home() {
                   e.key === "Enter" && !e.shiftKey && handleSendMessage()
                 }
                 placeholder="Ask anything about your documents..."
-                className="flex-1 bg-transparent text-gray-900 placeholder:text-gray-500 px-4 py-2.5 focus:outline-none text-[15px] font-light"
+                className="flex-1 bg-transparent text-gray-900 placeholder:text-gray-500 px-3 sm:px-4 py-2 sm:py-2.5 focus:outline-none text-sm sm:text-[15px] font-light"
                 disabled={isLoading}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={isLoading || !input.trim()}
-                className="bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed p-2.5 rounded-xl transition-all shrink-0"
+                className="bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed p-2 sm:p-2.5 rounded-xl transition-all shrink-0"
               >
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4 sm:w-5 sm:h-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
