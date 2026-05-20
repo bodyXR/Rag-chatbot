@@ -19,6 +19,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [sessionId, setSessionId] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,6 +30,23 @@ export default function Home() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Create session on mount
+  useEffect(() => {
+    const createSession = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/session`,
+        );
+        const data = await response.json();
+        setSessionId(data.session_id);
+      } catch (error) {
+        console.error("Failed to create session:", error);
+        setSessionId("default");
+      }
+    };
+    createSession();
+  }, []);
 
   const handleFileUpload = async (uploadedFiles: FileList | null) => {
     if (!uploadedFiles) return;
@@ -47,12 +65,16 @@ export default function Home() {
 
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("session_id", sessionId);
 
       try {
-        const response = await fetch("http://localhost:8000/upload", {
-          method: "POST",
-          body: formData,
-        });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/upload`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
 
         if (response.ok) {
           setFiles((prev) =>
@@ -100,10 +122,10 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: input, session_id: sessionId }),
       });
 
       const data = await response.json();

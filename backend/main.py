@@ -47,11 +47,18 @@ if INDEX_NAME not in pc.list_indexes().names():
 
 index = pc.Index(INDEX_NAME)
 
+# Store for session management (in-memory, resets on server restart)
+sessions = {}
+
 class ChatRequest(BaseModel):
     message: str
+    session_id: str = "default"
 
 class ChatResponse(BaseModel):
     response: str
+
+class UploadRequest(BaseModel):
+    session_id: str = "default"
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     """Split text into overlapping chunks"""
@@ -79,7 +86,7 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     return "\n".join([para.text for para in doc.paragraphs])
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), session_id: str = "default"):
     """Upload and process a document"""
     try:
         content = await file.read()
@@ -105,7 +112,7 @@ async def upload_file(file: UploadFile = File(...)):
         )
         embeddings = response.embeddings
         
-        # Prepare vectors for Pinecone
+        # Prepare vectors for Pinecone with session namespace
         vectors = []
         for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
             vector_id = f"{file.filename}_{i}_{uuid.uuid4()}"
@@ -115,14 +122,20 @@ async def upload_file(file: UploadFile = File(...)):
                 "metadata": {
                     "text": chunk,
                     "filename": file.filename,
-                    "chunk_index": i
+                    "chunk_index": i,
+                    "session_id": session_id
                 }
             })
         
-        # Upsert to Pinecone
-        index.upsert(vectors=vectors)
+        # Upsert to Pinecone with namespace
+        index.upsert(vectors=vectors, namespace=session_id)
         
-        return {"status": "success", "filename": file.filename, "chunks": len(chunks)}
+        # Track session
+        if session_id not in sessions:
+            sessions[session_id] = []
+        sessions[session_id].append(file.filename)
+        
+        return {"status": "success", "filename": file.filename, "chunks": len(chunks), "session_id": session_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -138,11 +151,12 @@ async def chat(request: ChatRequest):
         )
         query_embedding = response.embeddings[0]
         
-        # Query Pinecone for relevant chunks
+        # Query Pinecone for relevant chunks in this session's namespace
         results = index.query(
             vector=query_embedding,
             top_k=3,
-            include_metadata=True
+            include_metadata=True,
+            namespace=request.session_id
         )
         
         # Extract context from results
@@ -167,11 +181,19 @@ Please answer the question based only on the provided context. If the answer is 
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/clear")
-async def clear_documents():
-    """Clear all documents from the vector store"""
+async def clear_documents(session_id: str = "default"):
+    """Clear all documents from the vector store for this session"""
     try:
-        # Delete all vectors from the index
-        index.delete(delete_all=True)
-        return {"status": "success"}
+        # Delete all vectors in this namespace
+        index.delete(delete_all=True, namespace=session_id)
+        if session_id in sessions:
+            del sessions[session_id]
+        return {"status": "success", "session_id": session_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/session")
+async def create_session():
+    """Create a new session ID"""
+    session_id = str(uuid.uuid4())
+    return {"session_id": session_id}
