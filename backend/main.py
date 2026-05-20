@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
@@ -86,7 +86,7 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     return "\n".join([para.text for para in doc.paragraphs])
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...), session_id: str = "default"):
+async def upload_file(file: UploadFile = File(...), session_id: str = Form("default")):
     """Upload and process a document"""
     try:
         content = await file.read()
@@ -135,6 +135,8 @@ async def upload_file(file: UploadFile = File(...), session_id: str = "default")
             sessions[session_id] = []
         sessions[session_id].append(file.filename)
         
+        print(f"Uploaded {file.filename} to session {session_id} with {len(chunks)} chunks")
+        
         return {"status": "success", "filename": file.filename, "chunks": len(chunks), "session_id": session_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -158,6 +160,10 @@ async def chat(request: ChatRequest):
             include_metadata=True,
             namespace=request.session_id
         )
+        
+        print(f"Query in session {request.session_id}: found {len(results.matches)} matches")
+        if results.matches:
+            print(f"Best match score: {results.matches[0].score if results.matches else 0}")
         
         # Extract context from results
         context = "\n\n".join([match.metadata["text"] for match in results.matches if match.score > 0.3])

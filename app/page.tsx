@@ -23,6 +23,8 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -35,9 +37,7 @@ export default function Home() {
   useEffect(() => {
     const createSession = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/session`,
-        );
+        const response = await fetch(`${API_URL}/session`);
         const data = await response.json();
         setSessionId(data.session_id);
       } catch (error) {
@@ -68,13 +68,10 @@ export default function Home() {
       formData.append("session_id", sessionId);
 
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/upload`,
-          {
-            method: "POST",
-            body: formData,
-          },
-        );
+        const response = await fetch(`${API_URL}/upload`, {
+          method: "POST",
+          body: formData,
+        });
 
         if (response.ok) {
           setFiles((prev) =>
@@ -122,7 +119,7 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
+      const response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: input, session_id: sessionId }),
